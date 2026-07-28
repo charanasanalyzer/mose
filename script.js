@@ -6921,6 +6921,13 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
     return { ...stu, total, mean, grade:g, points:pts, incomplete };
   }).filter(Boolean);
 
+  // ── No Ranking mode: list everyone alphabetically by name, no position numbers ──
+  if (noRanking) {
+    const scored = allMapped.slice().sort((a, b) => a.name.localeCompare(b.name));
+    scored.forEach(s => { s.overallRank = null; s.streamRank = null; });
+    return scored;
+  }
+
   // Split complete vs incomplete students
   const complete   = allMapped.filter(s => !s.incomplete);
   const incomplete_students = allMapped.filter(s => s.incomplete);
@@ -6939,12 +6946,6 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
 
   // Combine: complete ranked first, incomplete appended at bottom
   const scored = [...complete, ...incomplete_students];
-
-  // ── No Ranking mode: keep the marks/points-based order above, just don't number positions ──
-  if (noRanking) {
-    scored.forEach(s => { s.overallRank = null; s.streamRank = null; });
-    return scored;
-  }
 
   // ── Rank within class (overallRank = position in this class, not whole school) ──
   // Only complete students receive rank numbers; incomplete students get no rank
@@ -13704,12 +13705,13 @@ function _buildPtsLegend(compact) {
 function _rankByLabel() {
   const rankBy = document.getElementById('mlRankBy')?.value || 'points';
   const noRanking = document.getElementById('mlNoRanking')?.checked || false;
+  if (noRanking) {
+    return '<span style="font-size:.68rem;font-weight:600;background:#fdf4ff;color:#9333ea;border:1px solid #e9d5ff;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-arrow-down-a-z" style="font-size:.6rem"></i> Alphabetical — No Position Numbers</span>';
+  }
   const base = rankBy === 'points'
     ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ordered by Mean Points</span>'
     : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ordered by Total Marks</span>';
-  if (!noRanking) return base;
-  const noRankBadge = '<span style="font-size:.68rem;font-weight:600;background:#fdf4ff;color:#9333ea;border:1px solid #e9d5ff;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-list-ol" style="font-size:.6rem"></i> No Position Numbers</span>';
-  return base + noRankBadge;
+  return base;
 }
 function _pathwayBadge(pwId) {
   const pw = getPathway(pwId); if (!pw) return '';
