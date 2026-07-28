@@ -6920,6 +6920,13 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
     return { ...stu, total, mean, grade:g, points:pts, incomplete };
   }).filter(Boolean);
 
+  // ── No Ranking mode: list everyone alphabetically, no positions assigned ──
+  if (rankBy === 'none') {
+    const scored = allMapped.slice().sort((a, b) => a.name.localeCompare(b.name));
+    scored.forEach(s => { s.overallRank = null; s.streamRank = null; });
+    return scored;
+  }
+
   // Split complete vs incomplete students
   const complete   = allMapped.filter(s => !s.incomplete);
   const incomplete_students = allMapped.filter(s => s.incomplete);
@@ -7829,7 +7836,9 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
     // Rank display
     const rankCell = s.incomplete
       ? `<td><span class="badge b-red" style="font-size:.65rem;opacity:.7">DQ</span></td>`
-      : `<td><span class="badge ${s.overallRank===1?'b-amber':s.overallRank<=3?'b-blue':'b-teal'}">#${s.overallRank}</span></td>`;
+      : (s.overallRank == null
+        ? `<td><span class="badge b-teal" style="font-size:.65rem;opacity:.7">—</span></td>`
+        : `<td><span class="badge ${s.overallRank===1?'b-amber':s.overallRank<=3?'b-blue':'b-teal'}">#${s.overallRank}</span></td>`);
 
     // Mean / total / grade cells: show X for incomplete
     const totalCell  = s.incomplete ? `<td><strong style="color:#dc2626">X</strong></td>` : `<td><strong>${s.total}</strong></td>`;
@@ -7839,7 +7848,7 @@ function buildMeritTableHTML(scored, examId, showStreamCol) {
     const ptsCell    = s.incomplete ? `<td style="color:#dc2626;font-weight:800">X</td>` : `<td>${s.points}</td>`;
     const ptsGrdCell = s.incomplete ? `<td><span class="badge b-red" style="font-size:.72rem">X</span></td>` : `<td><span class="badge ${getPointsGrade(s.points).cls}" style="font-size:.72rem">${getPointsGrade(s.points).grade}</span></td>`;
 
-    const streamRankDisplay = s.incomplete ? '—' : `#${s.streamRank}`;
+    const streamRankDisplay = (s.incomplete || s.streamRank == null) ? '—' : `#${s.streamRank}`;
     return `<tr${s.incomplete ? ' style="background:#fff8f8;opacity:.92"' : ''}>
       ${rankCell}
       <td style="font-family:var(--mono);font-size:.78rem">${s.adm}</td>
@@ -7870,7 +7879,7 @@ function printMeritList() {
   const exam    = exams.find(e => e.id === examId);
   if (!exam) { showToast('Exam not found', 'error'); return; }
 
-  const mlType      = document.getElementById('mlType')?.value || 'class_overall_and_stream';
+  const mlType      = document.getElementById('mlType')?.value || 'class_overall';
   const classFilter = document.getElementById('mlClass')?.value || null;
   const streamFilter = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
   const rankBy      = document.getElementById('mlRankBy')?.value || 'points';
@@ -8688,7 +8697,7 @@ function exportMeritExcel() {
   const exam   = exams.find(e=>e.id===examId);
   const isConsolidated = exam?.category === 'consolidated';
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
-  const mlType      = document.getElementById('mlType')?.value || 'class_overall_and_stream';
+  const mlType      = document.getElementById('mlType')?.value || 'class_overall';
   const classFilter = document.getElementById('mlClass')?.value || null;
   const streamFilter = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
   const scored = buildMeritData(examId, streamFilter, classFilter);
@@ -8767,7 +8776,7 @@ function exportMeritPDF() {
   const exam           = exams.find(e => e.id === examId); if (!exam) return;
   const isConsolidated = exam.category === 'consolidated';
   const sourceExamObjs = isConsolidated ? (exam.sourceExamIds||[]).map(id=>exams.find(e=>e.id===id)).filter(Boolean) : [];
-  const mlType         = document.getElementById('mlType')?.value || 'class_overall_and_stream';
+  const mlType         = document.getElementById('mlType')?.value || 'class_overall';
   const classFilter    = document.getElementById('mlClass')?.value || null;
   const filterStr      = mlType === 'class_stream' ? (document.getElementById('mlStream')?.value||null) : null;
   const examSubs       = (exam.subjectIds||[]).map(sid=>subjects.find(s=>s.id===sid)).filter(Boolean);
@@ -13317,7 +13326,7 @@ function onMlTypeChange(skipRender) {
   }
   // Show pathway selector for senior school on compare-streams view or stream view
   if (pathwayRow) {
-    pathwayRow.style.display = (isSeniorSchool() && (type === 'pathway_compare_streams' || type === 'class_stream')) ? '' : 'none';
+    pathwayRow.style.display = (isSeniorSchool() && type === 'class_stream') ? '' : 'none';
   }
   // Never auto-render — user must click Generate
 }
@@ -13404,7 +13413,7 @@ function saveEditedGS(id) {
 // ═══════════════ MERIT LIST – UPDATED RENDER ═══════════════
 function renderMeritList() {
   const examId    = document.getElementById('mlExam').value;
-  const type      = document.getElementById('mlType')?.value || 'class_overall_and_stream';
+  const type      = document.getElementById('mlType')?.value || 'class_overall';
   const classId   = document.getElementById('mlClass')?.value || '';
   const container = document.getElementById('meritListWrap');
 
@@ -13693,7 +13702,11 @@ function _buildPtsLegend(compact) {
   </div>`;
 }
 function _rankByLabel() {
-  return (document.getElementById('mlRankBy')?.value||'points')==='points'
+  const rankBy = document.getElementById('mlRankBy')?.value || 'points';
+  if (rankBy === 'none') {
+    return '<span style="font-size:.68rem;font-weight:600;background:#fdf4ff;color:#9333ea;border:1px solid #e9d5ff;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-arrow-down-a-z" style="font-size:.6rem"></i> No Ranking — Alphabetical Order</span>';
+  }
+  return rankBy === 'points'
     ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean Points</span>'
     : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
 }
