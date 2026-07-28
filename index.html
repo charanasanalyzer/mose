@@ -875,16 +875,22 @@
               <select id="mlRankBy">
                 <option value="points" selected>Mean Points — Grade Points (tie: total marks)</option>
                 <option value="marks">Total Marks — Raw Score</option>
-                <option value="none">No Ranking — Alphabetical Order</option>
               </select>
             </div>
             <div class="fg" style="display:flex;align-items:flex-end">
               <div style="background:var(--primary-lt,#eef4ff);border:1px solid var(--border);border-radius:8px;padding:.45rem .85rem;font-size:.78rem;color:var(--muted);width:100%">
                 <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
                 <strong style="color:var(--primary)">Mean Score:</strong> ranks by average across subjects; ties broken by total marks.<br>
-                <strong style="color:var(--primary)">Total Marks:</strong> ranks by raw sum of all subject scores.<br>
-                <strong style="color:var(--primary)">No Ranking:</strong> no positions assigned — students listed alphabetically by name.
+                <strong style="color:var(--primary)">Total Marks:</strong> ranks by raw sum of all subject scores.
               </div>
+            </div>
+          </div>
+          <div class="frow" style="margin-bottom:.75rem">
+            <div class="fg">
+              <label class="check-label" style="font-size:.9rem;font-weight:500">
+                <input type="checkbox" id="mlNoRanking"/>
+                No Ranking — keep marks/points but don't assign position numbers
+              </label>
             </div>
           </div>
           <div class="btn-row-compact">

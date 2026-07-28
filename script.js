@@ -6825,6 +6825,7 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
 
   // ── Read ranking preference from UI (fallback: 'points') ─────────────
   const rankBy = document.getElementById('mlRankBy')?.value || 'points';
+  const noRanking = document.getElementById('mlNoRanking')?.checked || false;
 
   // Determine effective classId restriction
   const effectiveClassId = filterClassId || exam.classId || null;
@@ -6920,13 +6921,6 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
     return { ...stu, total, mean, grade:g, points:pts, incomplete };
   }).filter(Boolean);
 
-  // ── No Ranking mode: list everyone alphabetically, no positions assigned ──
-  if (rankBy === 'none') {
-    const scored = allMapped.slice().sort((a, b) => a.name.localeCompare(b.name));
-    scored.forEach(s => { s.overallRank = null; s.streamRank = null; });
-    return scored;
-  }
-
   // Split complete vs incomplete students
   const complete   = allMapped.filter(s => !s.incomplete);
   const incomplete_students = allMapped.filter(s => s.incomplete);
@@ -6945,6 +6939,12 @@ function buildMeritData(examId, filterStreamId, filterClassId, filterPathwayId) 
 
   // Combine: complete ranked first, incomplete appended at bottom
   const scored = [...complete, ...incomplete_students];
+
+  // ── No Ranking mode: keep the marks/points-based order above, just don't number positions ──
+  if (noRanking) {
+    scored.forEach(s => { s.overallRank = null; s.streamRank = null; });
+    return scored;
+  }
 
   // ── Rank within class (overallRank = position in this class, not whole school) ──
   // Only complete students receive rank numbers; incomplete students get no rank
@@ -7963,12 +7963,12 @@ function printMeritList() {
     const body = scored.map(s => {
       const stream = streams.find(x=>x.id===s.streamId);
       const row = [
-        `#${s.overallRank}`,
+        s.overallRank == null ? '—' : `#${s.overallRank}`,
         s.adm,
         s.name,
         s.gender,
       ];
-      if (showStream) { row.push(stream?.name||'—', `#${s.streamRank}`); }
+      if (showStream) { row.push(stream?.name||'—', s.streamRank == null ? '—' : `#${s.streamRank}`); }
       examSubs.forEach(sub => {
         let score = null;
         if (isConsolidated && sourceExamObjs.length > 0) {
@@ -8708,7 +8708,7 @@ function exportMeritExcel() {
   const rows = scored.map(s => {
     const stream = streams.find(x=>x.id===s.streamId);
     const row = {
-      Rank:s.overallRank, StreamPos:'#'+s.streamRank,
+      Rank: s.overallRank == null ? '—' : s.overallRank, StreamPos: s.streamRank == null ? '—' : '#'+s.streamRank,
       AdmNo:s.adm, Name:s.name, Gender:s.gender,
       Class: classes.find(c=>c.id===s.classId)?.name||'',
       Stream: stream?.name||'',
@@ -8862,15 +8862,15 @@ function exportMeritPDF() {
           ${xCell}${xCell}${xCell}${xCell}${xCell}
         </tr>`;
       }
-      const rnkBg=s.overallRank===1?'#fef3c7':s.overallRank<=3?'#dbeafe':'';
-      const rnkC=s.overallRank===1?'#b45309':s.overallRank<=3?'#1d4ed8':'#1e293b';
+      const rnkBg=s.overallRank===1?'#fef3c7':(s.overallRank!=null&&s.overallRank<=3)?'#dbeafe':'';
+      const rnkC=s.overallRank===1?'#b45309':(s.overallRank!=null&&s.overallRank<=3)?'#1d4ed8':'#1e293b';
       const ptG=getPointsGrade(s.points);
       return `<tr style="background:${i%2===0?'#f8fbff':'#fff'}">
-        <td style="text-align:center;background:${rnkBg};color:${rnkC};font-weight:800;padding:2px 4px;border:1px solid #d1dfe8">${s.overallRank===1?'★':s.overallRank}</td>
+        <td style="text-align:center;background:${rnkBg};color:${rnkC};font-weight:800;padding:2px 4px;border:1px solid #d1dfe8">${s.overallRank===1?'★':(s.overallRank==null?'—':s.overallRank)}</td>
         <td style="font-family:monospace;font-size:8px;padding:2px 4px;border:1px solid #d1dfe8">${s.adm}</td>
         <td style="font-weight:700;padding:2px 4px;border:1px solid #d1dfe8">${s.name}</td>
         <td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${s.gender==='M'?'<span style="color:#1d4ed8;font-weight:700">M</span>':'<span style="color:#be185d;font-weight:700">F</span>'}</td>
-        ${showStream?`<td style="padding:2px 4px;border:1px solid #d1dfe8">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">#${s.streamRank}</td>`:''}
+        ${showStream?`<td style="padding:2px 4px;border:1px solid #d1dfe8">${str?.name||'—'}</td><td style="text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${s.streamRank==null?'—':'#'+s.streamRank}</td>`:''}
         ${subCells}
         <td style="font-weight:800;text-align:center;padding:2px 4px;border:1px solid #d1dfe8">${s.total}</td>
         <td style="text-align:center;font-weight:700;color:#7c3aed;padding:2px 4px;border:1px solid #d1dfe8">${s.mean.toFixed(2)}</td>
@@ -13703,12 +13703,13 @@ function _buildPtsLegend(compact) {
 }
 function _rankByLabel() {
   const rankBy = document.getElementById('mlRankBy')?.value || 'points';
-  if (rankBy === 'none') {
-    return '<span style="font-size:.68rem;font-weight:600;background:#fdf4ff;color:#9333ea;border:1px solid #e9d5ff;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-arrow-down-a-z" style="font-size:.6rem"></i> No Ranking — Alphabetical Order</span>';
-  }
-  return rankBy === 'points'
-    ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ranked by Mean Points</span>'
-    : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ranked by Total Marks</span>';
+  const noRanking = document.getElementById('mlNoRanking')?.checked || false;
+  const base = rankBy === 'points'
+    ? '<span style="font-size:.68rem;font-weight:600;background:#eef4ff;color:var(--primary);border:1px solid #c7d7f0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-chart-line" style="font-size:.6rem"></i> Ordered by Mean Points</span>'
+    : '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-sigma" style="font-size:.6rem"></i> Ordered by Total Marks</span>';
+  if (!noRanking) return base;
+  const noRankBadge = '<span style="font-size:.68rem;font-weight:600;background:#fdf4ff;color:#9333ea;border:1px solid #e9d5ff;border-radius:5px;padding:1px 7px;margin-left:.5rem;vertical-align:middle"><i class="fa-solid fa-list-ol" style="font-size:.6rem"></i> No Position Numbers</span>';
+  return base + noRankBadge;
 }
 function _pathwayBadge(pwId) {
   const pw = getPathway(pwId); if (!pw) return '';
