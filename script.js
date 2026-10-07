@@ -49,7 +49,7 @@ const PLATFORM_CREDS_KEY    = 'ei_platform_creds';    // {username, password} â€
 // Flip to false to restore normal login for everyone.
 // While true, every login attempt (admin, teacher, student, guest) is
 // blocked with a polite payment notice instead of being signed in.
-const PAYMENT_LOCK_ENABLED = true;
+const PAYMENT_LOCK_ENABLED = false;
 const PAYMENT_LOCK_MESSAGE =
   '<strong>Access on Hold</strong><br>' +
   'Please pay for this term to continue using the system. ' +
